@@ -1,0 +1,38 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Market Validation API
+
+Globals:
+  Function:
+    Timeout: 30
+    MemorySize: 256
+
+Resources:
+  ValidateMarketFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: app/
+      Handler: main.validate_market
+      Runtime: python3.10
+      Events:
+        ValidateMarket:
+          Type: Api
+          Properties:
+            Path: /api/validate-market
+            Method: post
+      Environment:
+        Variables:
+          OPENAI_API_KEY: !Ref OpenAIApiKey
+          LOG_LEVEL: INFO
+    Metadata:
+      BuildMethod: python3.10
+
+Parameters:
+  OpenAIApiKey:
+    Type: String
+    NoEcho: true
+
+Outputs:
+  ValidateMarketApi:
+    Description: "API Gateway endpoint URL for Prod stage for Validate Market function"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/api/validate-market/"
