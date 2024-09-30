@@ -1,0 +1,3 @@
+{
+  "body": "{\"description\": \"This market will resolve to 'YES' if OpenAI announces that the company has raised additional capital before 31st December 2024 11:59PM UTC+00:00. The resolution source for this market will be popular news outlets that confirm the capital raise before the resolution date.\", \"question\": \"Will OpenAI announce raising a round in 2024?\"}"
+}

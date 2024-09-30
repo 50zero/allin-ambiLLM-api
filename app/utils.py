@@ -11,11 +11,15 @@ def parse_assistant_response(all_messages):
         if message.role == 'assistant':
             try:
                 content_str = message.content[0].text.value
-                try:
-                    content_json = json.loads(content_str)
-                    parsed_response.update(content_json)
-                except json.JSONDecodeError:
-                    logging.warning("Failed to parse JSON from message content.")
+                # Check the type of content_str before parsing
+                if isinstance(content_str, str):
+                    try:
+                        content_json = json.loads(content_str)
+                        parsed_response.update(content_json)
+                    except json.JSONDecodeError:
+                        logging.warning("Failed to parse JSON from message content.")
+                else:
+                    logging.warning("Content is not a string and cannot be serialized to JSON.")
             except (IndexError, AttributeError):
                 logging.warning("Unexpected message content structure.")
     return parsed_response
