@@ -260,6 +260,17 @@ def validate_market(event, context):
     return response
 
 def generate_description(event, context):
+    if not event:
+        return {
+            'statusCode': 400,
+            'body': json.dumps({'error': 'No input provided'}),
+            'headers': {
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'POST, OPTIONS',
+                'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
+            },
+        }
+
     if 'httpMethod' in event:
         if event['httpMethod'] == 'OPTIONS':
             return {
@@ -279,7 +290,7 @@ def generate_description(event, context):
     try:
         description_request = DescriptionRequest(**body)
         result, status_code = generate_description_logic(description_request.question)
-        response = {
+        return {
             'statusCode': status_code,
             'body': json.dumps(result),
             'headers': {
@@ -289,7 +300,7 @@ def generate_description(event, context):
             },
         }
     except (json.JSONDecodeError, ValidationError) as e:
-        response = {
+        return {
             'statusCode': 400,
             'body': json.dumps({'error': 'Invalid input', 'details': str(e)}),
             'headers': {
@@ -298,8 +309,6 @@ def generate_description(event, context):
                 'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
             },
         }
-    
-    return response
 
 def generate_suggestions(event, context):
     if 'httpMethod' in event:
