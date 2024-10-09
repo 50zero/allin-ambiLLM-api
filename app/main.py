@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, make_response
 from openai import OpenAI, OpenAIError
 from pydantic import BaseModel, ValidationError
 import time
@@ -202,9 +202,152 @@ def generate_suggestions_logic(question, mkt_description):
         logger.error(f"Error processing the request: {str(e)}")
         return {'error': 'Failed to generate suggestions. Please try again later.'}, 500
 
+def add_cors_headers(response):
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    response.headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'
+    return response
 
-@app.route('/api/validate-market', methods=['POST'])
+def validate_market(event, context):
+    # Check if this is an API Gateway event
+    if 'httpMethod' in event:
+        if event['httpMethod'] == 'OPTIONS':
+            return {
+                'statusCode': 200,
+                'headers': {
+                    'Access-Control-Allow-Origin': '*',
+                    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+                    'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
+                },
+            }
+        
+        # For API Gateway events, the body is a string that needs to be parsed
+        body = json.loads(event['body'])
+    elif 'body' in event and isinstance(event['body'], str):
+        # For sam local invoke, the body is a string within the event
+        body = json.loads(event['body'])
+    else:
+        # For direct Lambda invocations, the event itself is the body
+        body = event
+    
+    try:
+        validation_request = ValidationRequest(**body)
+        result, status_code = validate_market_logic(
+            validation_request.market_description, 
+            validation_request.market_question,
+            validation_request.resolution_date
+        )
+        response = {
+            'statusCode': status_code,
+            'body': json.dumps(result),
+            'headers': {
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'POST, OPTIONS',
+                'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
+            },
+        }
+    except (json.JSONDecodeError, ValidationError) as e:
+        response = {
+            'statusCode': 400,
+            'body': json.dumps({'error': 'Invalid input', 'details': str(e)}),
+            'headers': {
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'POST, OPTIONS',
+                'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
+            },
+        }
+    
+    return response
+
+def generate_description(event, context):
+    if 'httpMethod' in event:
+        if event['httpMethod'] == 'OPTIONS':
+            return {
+                'statusCode': 200,
+                'headers': {
+                    'Access-Control-Allow-Origin': '*',
+                    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+                    'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
+                },
+            }
+        body = json.loads(event['body'])
+    elif 'body' in event and isinstance(event['body'], str):
+        body = json.loads(event['body'])
+    else:
+        body = event
+    
+    try:
+        description_request = DescriptionRequest(**body)
+        result, status_code = generate_description_logic(description_request.question)
+        response = {
+            'statusCode': status_code,
+            'body': json.dumps(result),
+            'headers': {
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'POST, OPTIONS',
+                'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
+            },
+        }
+    except (json.JSONDecodeError, ValidationError) as e:
+        response = {
+            'statusCode': 400,
+            'body': json.dumps({'error': 'Invalid input', 'details': str(e)}),
+            'headers': {
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'POST, OPTIONS',
+                'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
+            },
+        }
+    
+    return response
+
+def generate_suggestions(event, context):
+    if 'httpMethod' in event:
+        if event['httpMethod'] == 'OPTIONS':
+            return {
+                'statusCode': 200,
+                'headers': {
+                    'Access-Control-Allow-Origin': '*',
+                    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+                    'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
+                },
+            }
+        body = json.loads(event['body'])
+    elif 'body' in event and isinstance(event['body'], str):
+        body = json.loads(event['body'])
+    else:
+        body = event
+    
+    try:
+        suggestion_request = SuggestionRequest(**body)
+        result, status_code = generate_suggestions_logic(
+            suggestion_request.question,
+            suggestion_request.description
+        )
+        return {
+            'statusCode': status_code,
+            'body': json.dumps(result),
+            'headers': {
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'POST, OPTIONS',
+                'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
+            },
+        }
+    except (json.JSONDecodeError, ValidationError) as e:
+        return {
+            'statusCode': 400,
+            'body': json.dumps({'error': 'Invalid input', 'details': str(e)}),
+            'headers': {
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'POST, OPTIONS',
+                'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
+            },
+        }
+
+@app.route('/api/validate-market', methods=['POST', 'OPTIONS'])
 def validate_market_flask():
+    if request.method == 'OPTIONS':
+        return add_cors_headers(make_response())
     try:
         data = request.json
         validation_request = ValidationRequest(**data)
@@ -213,22 +356,30 @@ def validate_market_flask():
             validation_request.market_question,
             validation_request.resolution_date
         )
-        return jsonify(result), status_code
+        response = make_response(jsonify(result), status_code)
+        return add_cors_headers(response)
     except ValidationError as e:
-        return jsonify({'error': 'Invalid input', 'details': str(e)}), 400
+        response = make_response(jsonify({'error': 'Invalid input', 'details': str(e)}), 400)
+        return add_cors_headers(response)
 
-@app.route('/api/generate-description', methods=['POST'])
+@app.route('/api/generate-description', methods=['POST', 'OPTIONS'])
 def generate_description_flask():
+    if request.method == 'OPTIONS':
+        return add_cors_headers(make_response())
     try:
         data = request.json
         description_request = DescriptionRequest(**data)
         result, status_code = generate_description_logic(description_request.question)
-        return jsonify(result), status_code
+        response = make_response(jsonify(result), status_code)
+        return add_cors_headers(response)
     except ValidationError as e:
-        return jsonify({'error': 'Invalid input', 'details': str(e)}), 400
+        response = make_response(jsonify({'error': 'Invalid input', 'details': str(e)}), 400)
+        return add_cors_headers(response)
 
-@app.route('/api/generate-suggestions', methods=['POST'])
+@app.route('/api/generate-suggestions', methods=['POST', 'OPTIONS'])
 def generate_suggestions_flask():
+    if request.method == 'OPTIONS':
+        return add_cors_headers(make_response())
     try:
         data = request.json
         suggestion_request = SuggestionRequest(**data)
@@ -236,61 +387,11 @@ def generate_suggestions_flask():
             suggestion_request.question,
             suggestion_request.description
         )
-        return jsonify(result), status_code
+        response = make_response(jsonify(result), status_code)
+        return add_cors_headers(response)
     except ValidationError as e:
-        return jsonify({'error': 'Invalid input', 'details': str(e)}), 400
-
-def validate_market(event, context):
-    try:
-        body = json.loads(event['body'])
-        validation_request = ValidationRequest(**body)
-        result, status_code = validate_market_logic(
-            validation_request.market_description, 
-            validation_request.market_question,
-            validation_request.resolution_date
-        )
-        return {
-            'statusCode': status_code,
-            'body': json.dumps(result)
-        }
-    except (json.JSONDecodeError, ValidationError) as e:
-        return {
-            'statusCode': 400,
-            'body': json.dumps({'error': 'Invalid input', 'details': str(e)})
-        }
-
-def generate_description(event, context):
-    try:
-        body = json.loads(event['body'])
-        description_request = DescriptionRequest(**body)
-        result, status_code = generate_description_logic(description_request.question)
-        return {
-            'statusCode': status_code,
-            'body': json.dumps(result)
-        }
-    except (json.JSONDecodeError, ValidationError) as e:
-        return {
-            'statusCode': 400,
-            'body': json.dumps({'error': 'Invalid input', 'details': str(e)})
-        }
-
-def generate_suggestions(event, context):
-    try:
-        body = json.loads(event['body'])
-        suggestion_request = SuggestionRequest(**body)
-        result, status_code = generate_suggestions_logic(
-            suggestion_request.question,
-            suggestion_request.description
-        )
-        return {
-            'statusCode': status_code,
-            'body': json.dumps(result)
-        }
-    except (json.JSONDecodeError, ValidationError) as e:
-        return {
-            'statusCode': 400,
-            'body': json.dumps({'error': 'Invalid input', 'details': str(e)})
-        }
+        response = make_response(jsonify({'error': 'Invalid input', 'details': str(e)}), 400)
+        return add_cors_headers(response)
 
 def create_app():
     return app
