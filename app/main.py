@@ -183,17 +183,26 @@ def generate_suggestions_logic(question, mkt_description):
 
         all_messages = client.beta.threads.messages.list(thread_id=thread.id)
 
-        response_content = []
+        response_content = None
         for message in all_messages.data:
             if message.role == 'assistant':
                 try:
                     for content in message.content:
                         if hasattr(content, 'text') and hasattr(content.text, 'value'):
-                            response_content.append(content.text.value)
+                            # Parse the JSON string
+                            response_content = json.loads(content.text.value)
+                            break  # We've found our JSON response, no need to continue
+                    if response_content:
+                        break  # We've found our JSON response, no need to check other messages
+                except json.JSONDecodeError as e:
+                    logger.error(f"Failed to parse JSON content: {str(e)}")
                 except Exception as e:
                     logger.error(f"Failed to process message content: {str(e)}")
 
-        return {'response': response_content}, 200
+        if response_content:
+            return response_content, 200
+        else:
+            return {'error': 'No valid response content found'}, 500
 
     except OpenAIError as e:
         logger.error(f"OpenAI error: {str(e)}")
