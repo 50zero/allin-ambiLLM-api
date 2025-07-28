@@ -1,6 +1,6 @@
 # allin-ambiLLM-api
 
-A serverless API built with AWS SAM (Serverless Application Model) that provides AI-powered market validation and content generation services using OpenAI's GPT models.
+A serverless API built with AWS SAM (Serverless Application Model) that provides AI-powered market validation and content generation services using a fine-tuned GPT4o-mini model.
 
 ## Features
 
@@ -35,4 +35,4 @@ sam deploy --guided
 
 ## Environment Variables
 
-- `OPENAI_API_KEY` - Your OpenAI API key (required)
+- `OPENAI_API_KEY` - OpenAI API key (required)
